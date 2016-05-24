@@ -8,6 +8,8 @@
 
 #import "GCDThrottle.h"
 
+#define ThreadCallStackSymbol       [NSThread callStackSymbols][1]
+
 @implementation GCDThrottle
 
 + (NSMutableDictionary *)scheduledSources {
@@ -20,20 +22,27 @@
 }
 
 void dispatch_throttle(NSTimeInterval threshold, GCDThrottleBlock block) {
-    [GCDThrottle throttle:threshold block:block];
+    _dispatch_throttle_on_queue(threshold, THROTTLE_MAIN_QUEUE, ThreadCallStackSymbol, block);
 }
 
 void dispatch_throttle_on_queue(NSTimeInterval threshold, dispatch_queue_t queue, GCDThrottleBlock block) {
-    [GCDThrottle throttle:threshold queue:queue block:block];
+    _dispatch_throttle_on_queue(threshold, queue, ThreadCallStackSymbol, block);
+}
+
+void _dispatch_throttle_on_queue(NSTimeInterval threshold, dispatch_queue_t queue, NSString *key, GCDThrottleBlock block) {
+    [GCDThrottle _throttle:threshold queue:queue key:key block:block];
 }
 
 + (void)throttle:(NSTimeInterval)threshold block:(GCDThrottleBlock)block {
-    [self throttle:threshold queue:THROTTLE_MAIN_QUEUE block:block];
+    [self _throttle:threshold queue:THROTTLE_MAIN_QUEUE key:ThreadCallStackSymbol block:block];
 }
 
 + (void)throttle:(NSTimeInterval)threshold queue:(dispatch_queue_t)queue block:(GCDThrottleBlock)block {
+    [self _throttle:threshold queue:queue key:ThreadCallStackSymbol block:block];
+}
+
++ (void)_throttle:(NSTimeInterval)threshold queue:(dispatch_queue_t)queue key:(NSString *)key block:(GCDThrottleBlock)block {
     
-    NSString *key = [NSThread callStackSymbols][1];
     NSMutableDictionary *scheduledSources = self.scheduledSources;
     
     dispatch_source_t source = scheduledSources[key];
